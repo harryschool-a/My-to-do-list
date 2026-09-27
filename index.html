@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待辦事項清單</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#4f46e5', // Indigo 600
+                        secondary: '#f3f4f6', // Gray 100
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            /* 淺灰色漸層背景 */
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            min-height: 100vh;
+        }
+
+        /* 自訂打勾方塊的動畫效果 */
+        .todo-checkbox:checked + label {
+            text-decoration: line-through;
+            color: #9ca3af; /* Gray 400 */
+        }
+        
+        .todo-item {
+            transition: all 0.3s ease;
+        }
+        
+        .todo-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center py-10 px-4">
+
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+        <!-- Header -->
+        <div class="bg-primary text-white p-6">
+            <h1 class="text-3xl font-bold mb-2">我的待辦事項</h1>
+            <p class="text-indigo-200 text-sm">今天也要充滿活力！✨</p>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-6 border-b border-gray-100">
+            <form id="todo-form" class="flex gap-2">
+                <input 
+                    type="text" 
+                    id="todo-input" 
+                    class="flex-1 bg-secondary border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    placeholder="新增待辦事項..."
+                    required
+                >
+                <button 
+                    type="submit" 
+                    class="bg-primary hover:bg-indigo-700 text-white rounded-lg px-6 py-3 font-semibold transition-colors flex items-center gap-2"
+                >
+                    <i class="fas fa-plus"></i>
+                    <span>新增</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Todo List Area -->
+        <div class="p-6">
+            <!-- 篩選器 (進階功能，預留) -->
+            <div class="flex justify-between items-center mb-4 text-sm text-gray-500">
+                <span id="task-count">0 個未完成任務</span>
+                <button id="clear-completed" class="hover:text-red-500 transition-colors hidden">
+                    清除已完成
+                </button>
+            </div>
+
+            <!-- 清單容器 -->
+            <ul id="todo-list" class="space-y-3">
+                <!-- 待辦事項會透過 JavaScript 動態新增到這裡 -->
+            </ul>
+            
+            <!-- 空狀態顯示 -->
+            <div id="empty-state" class="text-center py-8 hidden">
+                <div class="text-gray-300 mb-3 text-4xl">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <p class="text-gray-500">目前沒有待辦事項，<br>來新增一個吧！</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 取得 DOM 元素
+            const form = document.getElementById('todo-form');
+            const input = document.getElementById('todo-input');
+            const todoList = document.getElementById('todo-list');
+            const emptyState = document.getElementById('empty-state');
+            const taskCount = document.getElementById('task-count');
+            const clearCompletedBtn = document.getElementById('clear-completed');
+
+            // 狀態變數，用來儲存待辦事項的陣列
+            // 從 LocalStorage 讀取資料，如果沒有則為空陣列
+            let todos = JSON.parse(localStorage.getItem('todos')) || [];
+
+            // 初始化應用程式
+            function init() {
+                renderTodos();
+                updateUI();
+            }
+
+            // 將 todos 陣列儲存到 LocalStorage
+            function saveTodos() {
+                localStorage.setItem('todos', JSON.stringify(todos));
+                updateUI();
+            }
+
+            // 更新 UI 狀態 (任務數量、空狀態顯示等)
+            function updateUI() {
+                const activeTasks = todos.filter(todo => !todo.completed).length;
+                const completedTasks = todos.filter(todo => todo.completed).length;
+                
+                // 更新任務數量文字
+                taskCount.textContent = `${activeTasks} 個未完成任務`;
+
+                // 處理空狀態顯示
+                if (todos.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    todoList.classList.add('hidden');
+                } else {
+                    emptyState.classList.add('hidden');
+                    todoList.classList.remove('hidden');
+                }
+
+                // 處理清除已完成按鈕的顯示
+                if (completedTasks > 0) {
+                    clearCompletedBtn.classList.remove('hidden');
+                } else {
+                    clearCompletedBtn.classList.add('hidden');
+                }
+            }
+
+            // 渲染待辦事項清單
+            function renderTodos() {
+                todoList.innerHTML = ''; // 清空目前的清單
+                
+                todos.forEach((todo, index) => {
+                    const li = document.createElement('li');
+                    li.className = `todo-item bg-white border ${todo.completed ? 'border-gray-200 bg-gray-50' : 'border-gray-200'} rounded-lg p-3 flex items-center justify-between group`;
+                    
+                    // 建立勾選方塊和文字的容器
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'flex items-center gap-3 flex-1 cursor-pointer overflow-hidden';
+                    // 點擊整個項目區域也可以切換狀態
+                    contentDiv.onclick = () => toggleTodo(index);
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'todo-checkbox w-5 h-5 text-primary rounded border-gray-300 focus:ring-primary cursor-pointer';
+                    checkbox.checked = todo.completed;
+                    // 防止點擊 checkbox 時觸發父層的 onclick 導致切換兩次
+                    checkbox.onclick = (e) => e.stopPropagation();
+                    checkbox.onchange = () => toggleTodo(index);
+
+                    const text = document.createElement('span');
+                    text.className = `text-gray-700 truncate ${todo.completed ? 'line-through text-gray-400' : ''}`;
+                    text.textContent = todo.text;
+
+                    contentDiv.appendChild(checkbox);
+                    contentDiv.appendChild(text);
+
+                    // 建立刪除按鈕
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'text-gray-400 hover:text-red-500 p-2 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100';
+                    deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                    deleteBtn.title = '刪除事項';
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation(); // 防止觸發切換狀態
+                        deleteTodo(index);
+                    };
+
+                    li.appendChild(contentDiv);
+                    li.appendChild(deleteBtn);
+                    todoList.appendChild(li);
+                });
+            }
+
+            // 新增待辦事項
+            function addTodo(text) {
+                if (text.trim() === '') return;
+                
+                const newTodo = {
+                    text: text,
+                    completed: false,
+                    id: Date.now() // 用時間戳記作為簡單的唯一 ID
+                };
+                
+                todos.push(newTodo);
+                saveTodos();
+                renderTodos();
+            }
+
+            // 切換待辦事項狀態 (完成/未完成)
+            function toggleTodo(index) {
+                todos[index].completed = !todos[index].completed;
+                saveTodos();
+                renderTodos();
+            }
+
+            // 刪除待辦事項
+            function deleteTodo(index) {
+                todos.splice(index, 1);
+                saveTodos();
+                renderTodos();
+            }
+
+            // 清除所有已完成事項
+            function clearCompleted() {
+                todos = todos.filter(todo => !todo.completed);
+                saveTodos();
+                renderTodos();
+            }
+
+            // 事件監聽器：表單提交 (新增事項)
+            form.addEventListener('submit', (e) => {
+                e.preventDefault(); // 防止頁面重新整理
+                const text = input.value;
+                addTodo(text);
+                input.value = ''; // 清空輸入框
+                input.focus(); // 讓輸入框重新獲得焦點
+            });
+
+            // 事件監聽器：清除已完成按鈕
+            clearCompletedBtn.addEventListener('click', clearCompleted);
+
+            // 啟動應用程式
+            init();
+        });
+    </script>
+</body>
+</html>
